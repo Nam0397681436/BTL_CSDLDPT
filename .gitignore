@@ -1,7 +1,29 @@
-data/
-venv/
+# Python
 __pycache__/
 *.pyc
-.ipynb_checkpoints/
+*.pyo
+*.pyd
+
+# Virtual Environment
+venv/
+.env/
+env/
+.venv/
+
+# data
+data/
+
+# VSCode
 .vscode/
+
+# PyCharm
 .idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python build
+build/
+dist/
+*.egg-info/
