@@ -10,9 +10,9 @@ if str(SRC_DIR) not in sys.path:
 
 from services.ExtractFeatureImage import (
     extract_feature_HOG,
-    extract_feature_SIFT,
     extract_feature_color_histogram,
     extract_feature_texture,
+    extract_feature_shape
 )
 
 
@@ -30,9 +30,12 @@ def main():
         raise FileNotFoundError(f"Cannot read image: {img_path}")
 
     hog_features = extract_feature_HOG(img_np)
-    print("Color Histogram Features:", extract_feature_color_histogram(img_np, output_dir="./output"))
+    print("HOG Features:",hog_features)
+    print("HOG Features:",hog_features.shape)
     
-
+    feature_shape= extract_feature_shape(img_np)
+    print("Shape Features:", feature_shape)
+    print("Shape Features:", feature_shape.shape)
     # Print the HOG features and their shape
     # print("HOG Features:", hog_features)
     # print("HOG Features Shape:", hog_features.shape)
