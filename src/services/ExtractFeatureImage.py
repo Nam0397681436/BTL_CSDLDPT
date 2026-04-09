@@ -59,29 +59,73 @@ def extract_feature_venation(img_np: np.ndarray) -> np.ndarray:
         return np.array([])
 
 def extract_feature_HOG(img_np: np.ndarray) -> np.ndarray:
-    gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
+    """Trích xuất đặc trưng HOG tập trung vào vùng lá bằng cách sử dụng mask lọc nền mạnh mẽ."""
+    if img_np is None or img_np.size == 0:
+        return np.array([])
 
-    img_resized = cv2.resize(gray, (160, 128))
+    try:
+        # 1. Chuyển sang ảnh xám và làm mờ để giảm nhiễu
+        gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        
+        # 2. Tạo mask dùng Otsu Thresholding (tự động tìm ngưỡng tối ưu)
+        # Thử cả 2 trường hợp: Lá sáng trên nền tối và ngược lại
+        _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        
+        # Đảm bảo phần diện tích lớn hơn là nền (thường là vậy), nếu không thì invert
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if contours:
+            largest_cnt = max(contours, key=cv2.contourArea)
+            # Nếu contour lớn nhất chiếm quá ít diện tích, có thể cần invert mask
+            if cv2.contourArea(largest_cnt) < (img_np.shape[0] * img_np.shape[1] * 0.1):
+                _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+                contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                if contours:
+                    largest_cnt = max(contours, key=cv2.contourArea)
+
+            # Tạo mask từ contour lớn nhất
+            mask = np.zeros_like(gray)
+            cv2.drawContours(mask, [largest_cnt], -1, 255, -1)
+            
+            # Làm mượt mask bằng phép đóng (Closing)
+            kernel = np.ones((5,5), np.uint8)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        else:
+            mask = np.ones_like(gray) * 255 # Fallback nếu không tìm thấy contour
+
+        # 3. Loại bỏ nền
+        img_masked = cv2.bitwise_and(img_np, img_np, mask=mask)
+        
+        # 4. Chuyển sang ảnh xám và resize (160x128)
+        gray_masked = cv2.cvtColor(img_masked, cv2.COLOR_BGR2GRAY)
+        img_resized = cv2.resize(gray_masked, (160, 128))
     
-    hog = cv2.HOGDescriptor(_winSize=(160, 128), # kích thước ảnh
-                            _blockSize=(16, 16), # kích thước block
-                            _blockStride=(8, 8), # bước nhảy của block
-                            _cellSize=(8, 8), # kích thước cell
-                            _nbins=9) # số lượng histogram
-    
-    hog_features = hog.compute(img_resized)
-    
-    return hog_features.flatten()
+        # 5. Khởi tạo HOG Descriptor
+        hog = cv2.HOGDescriptor(_winSize=(160, 128),
+                                _blockSize=(16, 16),
+                                _blockStride=(8, 8),
+                                _cellSize=(8, 8),
+                                _nbins=9)
+        
+        # 6. Tính toán các đặc trưng
+        hog_features = hog.compute(img_resized)
+        return hog_features.flatten()
+        
+    except Exception as e:
+        print(f"Error in extract_feature_HOG: {e}")
+        return np.array([])
 
 def detect_leaf_contour(img_np: np.ndarray) -> np.ndarray:
-    gray= cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
-    # dùng bộ lọc kernel 5x5
-    gray_new= cv2.GaussianBlur(gray, (5,5), 0)
-    edges= cv2.Canny(gray_new, 50, 150)
-    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    """Tìm đường bao lớn nhất của lá (sử dụng Otsu để tăng độ chính xác)."""
+    gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     
-    leaf_contours= max(contours, key=cv2.contourArea)   
-    return leaf_contours
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return np.array([])
+        
+    return max(contours, key=cv2.contourArea)
     
 
 def extract_feature_shape(img_np: np.ndarray) -> np.ndarray:
@@ -119,12 +163,6 @@ def extract_feature_shape(img_np: np.ndarray) -> np.ndarray:
     return feature_vector
 
 
-def extract_feature_color_histogram(img_np: np.ndarray, output_dir: str = None):
-
-    pass
-
-def extract_feature_texture(img_np: np.ndarray) -> np.ndarray:
-    pass
 
 
 
