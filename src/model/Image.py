@@ -1,8 +1,5 @@
-import numpy as np
 import cv2
 import hashlib
-import os
-from datetime import datetime
 from pathlib import Path
 
 from services.ExtractFeatureImage import (
@@ -25,19 +22,41 @@ class Image:
         self.image = self.original_image.copy()
 
         path_obj = Path(self.source_path)
-        parts = path_obj.parent.parent.name.split()
-        self.category = " ".join(parts[:-1]) if len(parts) > 1 else parts[0]
+        self.category = self._extract_category_from_path(path_obj)
         self.image_id = hashlib.md5(path.encode()).hexdigest()
         self.object_name = f"{self.category}/{self.image_id}.jpg"
         self.url_minio = f"http://localhost:9001/browser/plantsimage/{self.object_name}"
 
+    @staticmethod
+    def _extract_category_from_path(path_obj: Path) -> str:
+        parts = [p for p in path_obj.parts if p not in (".", "")]
+        for idx, part in enumerate(parts):
+            if part.lower() == "data" and idx + 1 < len(parts):
+                candidate = parts[idx + 1]
+                if candidate.lower() != "healthy":
+                    return candidate
+        return "unknown"
+
     def preprocess(self):
-        # Resize bản để trích xuất đặc trưng về 256x256
+        # Resize bản dùng cho trích xuất đặc trưng
         self.image = cv2.resize(self.image, (256, 256), interpolation=cv2.INTER_AREA)
         
     def get_storage_image_bytes(self):
         """Trả về dữ liệu ảnh 1200x800 định dạng bytes để upload lên MinIO."""
         resized = cv2.resize(self.original_image, (1200, 800), interpolation=cv2.INTER_CUBIC)
+        is_success, buffer = cv2.imencode(".jpg", resized, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+        if is_success:
+            import io
+            return io.BytesIO(buffer)
+        return None
+
+    @staticmethod
+    def get_storage_image_bytes_from_path(path: str):
+        """Đọc ảnh theo path và trả về bytes JPEG 1200x800 để upload MinIO."""
+        image = cv2.imread(path)
+        if image is None:
+            return None
+        resized = cv2.resize(image, (1200, 800), interpolation=cv2.INTER_CUBIC)
         is_success, buffer = cv2.imencode(".jpg", resized, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
         if is_success:
             import io

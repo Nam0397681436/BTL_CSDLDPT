@@ -84,7 +84,7 @@ def _glcm_features(gray, mask, levels=32):
     return contrast, energy, correlation, entropy
 
 
-def compute_texture_features(gray, mask=None, lbp_P=8, lbp_R=1):
+def compute_texture_features(gray, mask=None, lbp_R=1):
     gray = gray.astype(np.uint8)
 
     if mask is None:

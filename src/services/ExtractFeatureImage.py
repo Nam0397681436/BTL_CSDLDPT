@@ -24,7 +24,6 @@ def extract_feature_color(img_np: np.ndarray) -> np.ndarray:
         print(f"Error extracting color features: {e}")
         return np.array([])
 
-
 def extract_feature_texture(img_np: np.ndarray) -> np.ndarray:
     """Extract texture features - LBP and GLCM (14D)."""
     if img_np is None or img_np.size == 0:
@@ -37,7 +36,6 @@ def extract_feature_texture(img_np: np.ndarray) -> np.ndarray:
     except Exception as e:
         print(f"Error extracting texture features: {e}")
         return np.array([])
-
 
 def extract_feature_venation(img_np: np.ndarray) -> np.ndarray:
     """Extract venation features - vein length, branch points, density (3D)."""
@@ -127,7 +125,6 @@ def detect_leaf_contour(img_np: np.ndarray) -> np.ndarray:
         
     return max(contours, key=cv2.contourArea)
     
-
 def extract_feature_shape(img_np: np.ndarray) -> np.ndarray:
     """
      Sử dungj thuật toán tìm biên Canny để tìm đường bao bên ngoài của lá. cho ngưỡng cao để tránh lấy gân lá

@@ -11,10 +11,8 @@ if str(SRC_DIR) not in sys.path:
 from services.ExtractFeatureImage import (
     extract_feature_color,
     extract_feature_HOG,
-    extract_feature_color_histogram,
     extract_feature_texture,
     extract_feature_venation,
-    extract_all_features,
     extract_feature_shape
 )
 
