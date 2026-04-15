@@ -154,3 +154,26 @@ class DAOPostgresql(IDatabase):
         with self.connection.cursor() as cursor:
             cursor.execute('SELECT * FROM "Basic_Metadata" WHERE image_id = %s', (image_id,))
             return cursor.fetchone()
+    
+    def get_feature_normalization_params(self):
+        if self.connection is None:
+            self.connect()
+
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT feature_name, mean_vector, std_vector, vector_dim
+                FROM "Feature_Normalization_Params"
+                '''
+            )
+            rows = cursor.fetchall()
+
+        stats = {}
+        for feature_name, mean_vector, std_vector, vector_dim in rows:
+            stats[feature_name] = {
+                "mean": mean_vector,
+                "std": std_vector,
+                "dim": vector_dim,
+            }
+
+        return stats
