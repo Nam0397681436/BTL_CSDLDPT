@@ -26,4 +26,4 @@ Thumbs.db
 # Python build
 build/
 dist/
-*.egg-info/
+*.egg-info/data.zip
