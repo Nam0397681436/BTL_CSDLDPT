@@ -144,8 +144,70 @@ def _count_branch_points(skeleton):
     return branch_points
 
 
+def _count_end_points(skeleton):
+    skeleton_mask = skeleton > 0
+    end_points = 0
+
+    for y in range(1, skeleton.shape[0] - 1):
+        for x in range(1, skeleton.shape[1] - 1):
+            if not skeleton_mask[y, x]:
+                continue
+
+            neighborhood = skeleton_mask[y - 1:y + 2, x - 1:x + 2]
+            neighbors = int(np.sum(neighborhood)) - 1
+            if neighbors == 1:
+                end_points += 1
+
+    return end_points
+
+def _count_connected_components(binary_image):
+    binary = (binary_image > 0).astype(np.uint8)
+    if np.count_nonzero(binary) == 0:
+        return 0
+
+    component_count, _ = cv2.connectedComponents(binary)
+    return max(0, int(component_count - 1))
+
+def _fractal_dimension(binary_image):
+    binary = (binary_image > 0)
+    if not np.any(binary):
+        return 0.0
+
+    h, w = binary.shape
+    max_power = int(np.floor(np.log2(min(h, w))))
+    if max_power < 1:
+        return 0.0
+
+    sizes = [2 ** p for p in range(1, max_power + 1)]
+    counts = []
+    valid_sizes = []
+
+    for size in sizes:
+        trimmed_h = (h // size) * size
+        trimmed_w = (w // size) * size
+        if trimmed_h == 0 or trimmed_w == 0:
+            continue
+
+        cropped = binary[:trimmed_h, :trimmed_w]
+        blocks = cropped.reshape(trimmed_h // size, size, trimmed_w // size, size)
+        occupied = np.any(blocks, axis=(1, 3))
+        count = int(np.count_nonzero(occupied))
+
+        if count > 0:
+            counts.append(count)
+            valid_sizes.append(size)
+
+    if len(counts) < 2:
+        return 0.0
+
+    log_inv_size = np.log(1.0 / np.array(valid_sizes, dtype=np.float64))
+    log_count = np.log(np.array(counts, dtype=np.float64))
+    slope, _ = np.polyfit(log_inv_size, log_count, 1)
+    return float(max(0.0, slope))
+
+
 def extract_venation_vector(image):
-    """Extract venation feature vector (3D) from image - vein length, branch points, density."""
+    """Extract venation feature vector (10D) for detailed vein structure analysis."""
     image_rgb = _ensure_rgb(image)
     gray = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
     leaf_mask = _largest_leaf_mask(image_rgb)
@@ -170,14 +232,33 @@ def extract_venation_vector(image):
     skeleton = cv2.bitwise_and(skeleton, skeleton, mask=leaf_mask)
 
     vein_length = int(np.count_nonzero(skeleton))
+    vein_area = int(np.count_nonzero(vein_binary))
     leaf_area = max(1, int(np.count_nonzero(leaf_mask)))
     vein_density = float(vein_length / leaf_area)
     branch_points = int(_count_branch_points(skeleton))
+    end_points = int(_count_end_points(skeleton))
+    component_count = int(_count_connected_components(skeleton))
+    fractal_dimension = float(_fractal_dimension(skeleton))
+    
+
+    branch_density = float(branch_points / leaf_area)
+    end_point_density = float(end_points / leaf_area)
+    avg_vein_thickness = float(vein_area / max(1, vein_length))
+    branch_end_ratio = float(branch_points / max(1, end_points))
+    complexity_index = float((branch_points + end_points) / max(1, vein_length))
 
     vein_vector = [
         float(vein_length),
         float(branch_points),
-        float(vein_density)
+        float(vein_density),
+        float(end_points),
+        float(branch_density),
+        float(end_point_density),
+        float(avg_vein_thickness),
+        float(component_count),
+        float(fractal_dimension),
+        float(branch_end_ratio),
+        float(complexity_index)
     ]
     
     return vein_vector
