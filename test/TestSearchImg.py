@@ -14,7 +14,7 @@ from src.model.Image import Image
 from src.services.ExtractImageDB import ExtractImageDB
 from src.dao.DAOPostgresql import DAOPostgresql
 from src.dao.DAOMinio import DAOMinio
-from src.utils.normalVector import _normalize_vector, _fit_feature_stats,_to_1d_float32
+from src.utils.normalVector import normalize_vector_by_feature_name
 
 def main():
     img_path="./test/img_test/img12.jpeg"
@@ -25,11 +25,11 @@ def main():
     
     feature_img_input=img_object.ExtractFeatures()
     feature_img_input={
-        "color":_to_1d_float32(feature_img_input["color"]),
-        "texture":_to_1d_float32(feature_img_input["texture"]),
-        "hog":_to_1d_float32(feature_img_input["hog"]),
-        "shape":_to_1d_float32(feature_img_input["shape"]),
-        "venation":_to_1d_float32(feature_img_input["venation"])
+        "color":normalize_vector_by_feature_name(feature_img_input["color"], "color"),
+        "texture":normalize_vector_by_feature_name(feature_img_input["texture"], "texture"),
+        "hog":normalize_vector_by_feature_name(feature_img_input["hog"], "hog"),
+        "shape":normalize_vector_by_feature_name(feature_img_input["shape"], "shape"),
+        "venation":normalize_vector_by_feature_name(feature_img_input["venation"], "venation")
     }
  
     try:
