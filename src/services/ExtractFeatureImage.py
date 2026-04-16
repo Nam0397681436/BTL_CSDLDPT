@@ -3,6 +3,7 @@ import numpy as np
 from .feature.ColorFeature import extract_color_vector
 from .feature.TextureFeature import extract_texture_vector
 from .feature.VenationFeature import extract_venation_vector
+from .PreprocessImage import can_bang_clahe
 
 
 def extract_feature_color(img_np: np.ndarray) -> np.ndarray:
@@ -64,11 +65,11 @@ def extract_feature_HOG(img_np: np.ndarray) -> np.ndarray:
     try:
         # 1. Chuyển sang ảnh xám và làm mờ để giảm nhiễu
         gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        img_clahe=can_bang_clahe(gray)
         
         # 2. Tạo mask dùng Otsu Thresholding (tự động tìm ngưỡng tối ưu)
         # Thử cả 2 trường hợp: Lá sáng trên nền tối và ngược lại
-        _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        _, thresh = cv2.threshold(img_clahe, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         
         # Đảm bảo phần diện tích lớn hơn là nền (thường là vậy), nếu không thì invert
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -76,7 +77,7 @@ def extract_feature_HOG(img_np: np.ndarray) -> np.ndarray:
             largest_cnt = max(contours, key=cv2.contourArea)
             # Nếu contour lớn nhất chiếm quá ít diện tích, có thể cần invert mask
             if cv2.contourArea(largest_cnt) < (img_np.shape[0] * img_np.shape[1] * 0.1):
-                _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+                _, thresh = cv2.threshold(img_clahe, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
                 contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                 if contours:
                     largest_cnt = max(contours, key=cv2.contourArea)

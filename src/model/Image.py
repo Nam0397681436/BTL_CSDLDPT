@@ -1,8 +1,9 @@
+import hashlib
 import cv2
 import hashlib
 from pathlib import Path
 
-from services.ExtractFeatureImage import (
+from src.services.ExtractFeatureImage import (
     extract_feature_texture,
     extract_feature_shape,
     extract_feature_HOG,
@@ -12,20 +13,24 @@ from services.ExtractFeatureImage import (
 
 
 class Image:
-    def __init__(self, path):
-        self.source_path = path
-        self.original_image = cv2.imread(path) # Giữ ảnh gốc độ phân giải cao
-        if self.original_image is None:
-            raise FileNotFoundError(f"Cannot read image: {path}")
+    def __init__(self, path=None, img_input=None):
+        if img_input is not None: # sử dụng cho trường hợp tìm kiếm ảnh đầu vào
+            self.image=img_input
+            self.image_id = hashlib.md5(img_input.tobytes()).hexdigest()
+        else: # sử dụng cho phần trích xuất đặc trưng lưu vào db
+            self.source_path = path
+            self.original_image = cv2.imread(path) # Giữ ảnh gốc độ phân giải cao
+            if self.original_image is None:
+                raise FileNotFoundError(f"Cannot read image: {path}")
 
-        # Bản sao để trích xuất đặc trưng (sẽ được resize ở preprocess)
-        self.image = self.original_image.copy()
+            # Bản sao để trích xuất đặc trưng (sẽ được resize ở preprocess)
+            self.image = self.original_image.copy()
 
-        path_obj = Path(self.source_path)
-        self.category = self._extract_category_from_path(path_obj)
-        self.image_id = hashlib.md5(path.encode()).hexdigest()
-        self.object_name = f"{self.category}/{self.image_id}.jpg"
-        self.url_minio = f"http://localhost:9001/browser/plantsimage/{self.object_name}"
+            path_obj = Path(self.source_path)
+            self.category = self._extract_category_from_path(path_obj)
+            self.image_id = hashlib.md5(path.encode()).hexdigest()
+            self.object_name = f"{self.category}/{self.image_id}.jpg"
+            self.url_minio = f"http://localhost:9001/browser/plantsimage/{self.object_name}"
 
     @staticmethod
     def _extract_category_from_path(path_obj: Path) -> str:

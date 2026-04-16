@@ -1,4 +1,4 @@
-from model.IDatabase import IDatabase
+from src.model.IDatabase import IDatabase
 import psycopg2
 import numpy as np
 
@@ -177,3 +177,64 @@ class DAOPostgresql(IDatabase):
             }
 
         return stats
+
+    def get_features_in_batches(self, batch_size=100):
+        if self.connection is None:
+            self.connect()
+        img_id=""
+        
+        offset = 0
+        while True:
+            with self.connection.cursor() as cursor:
+                cursor.execute(
+                    '''
+                    SELECT image_id, color_vector, texture_vector, hog_vector, shape_vector 
+                    FROM "Images_Features"
+                    ORDER BY image_id
+                    LIMIT %s OFFSET %s
+                    ''',
+                    (batch_size, offset)
+                )
+                rows = cursor.fetchall()
+                if not rows:
+                    break
+                
+                batch = []
+                for row in rows:
+                    batch.append({
+                        "image_id": row[0],
+                        "color": np.array(row[1], dtype=np.float32) if row[1] else None,
+                        "texture": np.array(row[2], dtype=np.float32) if row[2] else None,
+                        "hog": np.array(row[3], dtype=np.float32) if row[3] else None,
+                        "shape": np.array(row[4], dtype=np.float32) if row[4] else None
+                    })
+                    img_id=row[0]
+          
+                yield batch
+                offset += batch_size
+                
+ 
+
+
+    def get_metadata_by_ids(self, image_ids):
+        if not image_ids:
+            return []
+        if self.connection is None:
+            self.connect()
+        
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                'SELECT image_id, original_filename, minio_url, category, description FROM "Basic_Metadata" WHERE image_id = ANY(%s)',
+                (image_ids,)
+            )
+            rows = cursor.fetchall()
+            metadata_list = []
+            for row in rows:
+                metadata_list.append({
+                    "image_id": row[0],
+                    "original_filename": row[1],
+                    "minio_url": row[2],
+                    "category": row[3],
+                    "description": row[4]
+                })
+            return metadata_list
