@@ -1,4 +1,4 @@
-from src.model.IDatabase import IDatabase
+from model.IDatabase import IDatabase
 import minio
 import boto3
 

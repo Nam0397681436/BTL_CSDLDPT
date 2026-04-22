@@ -1,4 +1,4 @@
-from src.model.IDatabase import IDatabase
+from model.IDatabase import IDatabase
 import psycopg2
 import numpy as np
 
@@ -108,7 +108,11 @@ class DAOPostgresql(IDatabase):
                     """
                     INSERT INTO "Basic_Metadata" (image_id, original_filename, minio_url, category, description)
                     VALUES (%s, %s, %s, %s, %s)
-                    ON CONFLICT (image_id) DO NOTHING
+                    ON CONFLICT (image_id) DO UPDATE SET
+                        original_filename = EXCLUDED.original_filename,
+                        minio_url = EXCLUDED.minio_url,
+                        category = EXCLUDED.category,
+                        description = EXCLUDED.description
                     """,
                     (
                         metadata_basic["image_id"],
@@ -132,7 +136,12 @@ class DAOPostgresql(IDatabase):
                         image_id, color_vector, texture_vector, hog_vector, shape_vector, venation_vector
                     )
                     VALUES (%s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (image_id) DO NOTHING
+                    ON CONFLICT (image_id) DO UPDATE SET
+                        color_vector = EXCLUDED.color_vector,
+                        texture_vector = EXCLUDED.texture_vector,
+                        hog_vector = EXCLUDED.hog_vector,
+                        shape_vector = EXCLUDED.shape_vector,
+                        venation_vector = EXCLUDED.venation_vector
                     """,
                     (
                         metadata_features["image_id"],
@@ -154,87 +163,3 @@ class DAOPostgresql(IDatabase):
         with self.connection.cursor() as cursor:
             cursor.execute('SELECT * FROM "Basic_Metadata" WHERE image_id = %s', (image_id,))
             return cursor.fetchone()
-    
-    def get_feature_normalization_params(self):
-        if self.connection is None:
-            self.connect()
-
-        with self.connection.cursor() as cursor:
-            cursor.execute(
-                '''
-                SELECT feature_name, mean_vector, std_vector, vector_dim
-                FROM "Feature_Normalization_Params"
-                '''
-            )
-            rows = cursor.fetchall()
-
-        stats = {}
-        for feature_name, mean_vector, std_vector, vector_dim in rows:
-            stats[feature_name] = {
-                "mean": mean_vector,
-                "std": std_vector,
-                "dim": vector_dim,
-            }
-
-        return stats
-
-    def get_features_in_batches(self, batch_size=100):
-        if self.connection is None:
-            self.connect()
-        img_id=""
-        
-        offset = 0
-        while True:
-            with self.connection.cursor() as cursor:
-                cursor.execute(
-                    '''
-                    SELECT image_id, color_vector, texture_vector, hog_vector, shape_vector 
-                    FROM "Images_Features"
-                    ORDER BY image_id
-                    LIMIT %s OFFSET %s
-                    ''',
-                    (batch_size, offset)
-                )
-                rows = cursor.fetchall()
-                if not rows:
-                    break
-                
-                batch = []
-                for row in rows:
-                    batch.append({
-                        "image_id": row[0],
-                        "color": np.array(row[1], dtype=np.float32) if row[1] else None,
-                        "texture": np.array(row[2], dtype=np.float32) if row[2] else None,
-                        "hog": np.array(row[3], dtype=np.float32) if row[3] else None,
-                        "shape": np.array(row[4], dtype=np.float32) if row[4] else None
-                    })
-                    img_id=row[0]
-          
-                yield batch
-                offset += batch_size
-                
- 
-
-
-    def get_metadata_by_ids(self, image_ids):
-        if not image_ids:
-            return []
-        if self.connection is None:
-            self.connect()
-        
-        with self.connection.cursor() as cursor:
-            cursor.execute(
-                'SELECT image_id, original_filename, minio_url, category, description FROM "Basic_Metadata" WHERE image_id = ANY(%s)',
-                (image_ids,)
-            )
-            rows = cursor.fetchall()
-            metadata_list = []
-            for row in rows:
-                metadata_list.append({
-                    "image_id": row[0],
-                    "original_filename": row[1],
-                    "minio_url": row[2],
-                    "category": row[3],
-                    "description": row[4]
-                })
-            return metadata_list

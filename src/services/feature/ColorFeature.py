@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 
+from .leaf_segmentation import extract_leaf_mask, crop_leaf_region
+
 
 def _ensure_rgb(image):
     if image is None:
@@ -32,6 +34,13 @@ def _clean_binary_mask(mask):
     return cleaned
 
 
+def _refine_leaf_mask(mask):
+    mask = _clean_binary_mask(mask)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=1)
+    return _clean_binary_mask(mask)
+
+
 def _seed_from_color(image_rgb):
     hsv = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2HSV)
     rgb = image_rgb.astype(np.int16)
@@ -54,69 +63,17 @@ def _seed_from_color(image_rgb):
 
 def _largest_leaf_mask(image_rgb):
     image_rgb = _ensure_rgb(image_rgb)
-    gray = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
-
-    candidate_masks = []
-
-    strict_seed = _seed_from_color(image_rgb)
-    if cv2.countNonZero(strict_seed) > 0:
-        candidate_masks.append(strict_seed)
-
-    hsv = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2HSV)
-    rgb = image_rgb.astype(np.int16)
-    relaxed_seed = (
-        (
-            ((hsv[:, :, 0] >= 15) & (hsv[:, :, 0] <= 100))
-            & (hsv[:, :, 1] >= 18)
-            & (hsv[:, :, 2] >= 15)
-            & (rgb[:, :, 1] >= rgb[:, :, 0] - 2)
-            & (rgb[:, :, 1] >= rgb[:, :, 2] - 2)
-        ).astype(np.uint8)
-        * 255
-    )
-    relaxed_seed = _clean_binary_mask(relaxed_seed)
-    if cv2.countNonZero(relaxed_seed) > 0:
-        candidate_masks.append(relaxed_seed)
-
-    if not candidate_masks:
-        return np.zeros_like(gray, dtype=np.uint8)
-
-    scored_masks = []
-    for seed in candidate_masks:
-        contours, _ = cv2.findContours(seed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if not contours:
-            continue
-
-        largest = max(contours, key=cv2.contourArea)
-        area = cv2.contourArea(largest)
-        if area <= 0:
-            continue
-
-        mask = np.zeros_like(gray, dtype=np.uint8)
-        cv2.drawContours(mask, [largest], -1, 255, thickness=cv2.FILLED)
-        x, y, w, h = cv2.boundingRect(largest)
-        coverage = area / float(mask.shape[0] * mask.shape[1])
-        bbox_fill = area / float(max(1, w * h))
-        perimeter = cv2.arcLength(largest, True)
-        compactness = (4.0 * np.pi * area / (perimeter * perimeter)) if perimeter > 0 else 0.0
-
-        score = float(area)
-        score *= 1.4 if 0.01 <= coverage <= 0.5 else 0.5
-        score *= 1.3 if 0.15 <= bbox_fill <= 0.98 else 0.7
-        score *= 1.15 if compactness >= 0.04 else 0.85
-        scored_masks.append((score, mask))
-
-    if not scored_masks:
-        return np.zeros_like(gray, dtype=np.uint8)
-
-    scored_masks.sort(key=lambda item: item[0], reverse=True)
-    return _clean_binary_mask(scored_masks[0][1])
+    image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
+    return _refine_leaf_mask(extract_leaf_mask(image_bgr))
 
 
 def _square_canvas(image_rgb, mask, target=512):
     coords = cv2.findNonZero(mask)
     if coords is None:
-        resized_image = cv2.resize(image_rgb, (target, target), interpolation=cv2.INTER_AREA)
+        h_orig, w_orig = image_rgb.shape[:2]
+        scale = min(target / w_orig, target / h_orig)
+        interp = cv2.INTER_CUBIC if scale > 1.0 else cv2.INTER_AREA
+        resized_image = cv2.resize(image_rgb, (target, target), interpolation=interp)
         resized_mask = cv2.resize(mask, (target, target), interpolation=cv2.INTER_NEAREST)
         return resized_image, resized_mask
 
@@ -128,7 +85,8 @@ def _square_canvas(image_rgb, mask, target=512):
     new_w = max(1, int(round(w * scale)))
     new_h = max(1, int(round(h * scale)))
 
-    resized_image = cv2.resize(crop, (new_w, new_h), interpolation=cv2.INTER_AREA)
+    interp = cv2.INTER_CUBIC if scale > 1.0 else cv2.INTER_AREA
+    resized_image = cv2.resize(crop, (new_w, new_h), interpolation=interp)
     resized_mask = cv2.resize(crop_mask, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
 
     canvas = np.zeros((target, target, 3), dtype=np.uint8)
@@ -178,8 +136,14 @@ def compute_color_features(image_rgb, mask, bins=42):
 def extract_color_vector(image):
     """Extract a 132D color feature vector from an image."""
     image_rgb = _ensure_rgb(image)
-    mask = _largest_leaf_mask(image_rgb)
-    final_image, final_mask = _square_canvas(image_rgb, mask)
+    image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
+    raw_mask = _largest_leaf_mask(image_rgb)
+
+    # Keep the historical square alignment behavior after using shared segmentation.
+    cropped_bgr, cropped_mask = crop_leaf_region(image_bgr, raw_mask, target_size=(512, 512))
+    final_image = cv2.cvtColor(cropped_bgr, cv2.COLOR_BGR2RGB)
+    final_mask = cropped_mask
+
     color_feats = compute_color_features(final_image, final_mask)
     hist = np.array(color_feats["RGB_Histogram_126D"], dtype=np.float32).reshape(3, -1).T
     hist_rows = [[int(i), float(hist[i, 0]), float(hist[i, 1]), float(hist[i, 2])] for i in range(hist.shape[0])]
