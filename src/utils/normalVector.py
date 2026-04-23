@@ -12,7 +12,7 @@ def as_float_vector(feature) -> np.ndarray:
 
 @lru_cache(maxsize=2)
 def _load_normalization_params_from_db(connection_string: str) -> dict:
-    from dao.DAOPostgresql import DAOPostgresql
+    from src.dao.DAOPostgresql import DAOPostgresql
 
     dao = DAOPostgresql(connection_string)
     try:

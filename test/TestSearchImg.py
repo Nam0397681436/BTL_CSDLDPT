@@ -17,19 +17,20 @@ from src.dao.DAOMinio import DAOMinio
 from src.utils.normalVector import normalize_vector_by_feature_name
 
 def main():
-    img_path="./test/img_test/img12.jpeg"
+    img_path="./test/img_test/arjun.jpeg"
     img_input=cv2.imread(img_path)
     
     img_object=Image(img_input=img_input)
     img_object.preprocess()
     
     feature_img_input=img_object.ExtractFeatures()
+    pg_conn_str = "postgresql://admin:admin123@localhost:5432/mydb"
     feature_img_input={
-        "color":normalize_vector_by_feature_name(feature_img_input["color"], "color"),
-        "texture":normalize_vector_by_feature_name(feature_img_input["texture"], "texture"),
-        "hog":normalize_vector_by_feature_name(feature_img_input["hog"], "hog"),
-        "shape":normalize_vector_by_feature_name(feature_img_input["shape"], "shape"),
-        "venation":normalize_vector_by_feature_name(feature_img_input["venation"], "venation")
+        "color":normalize_vector_by_feature_name(feature_img_input["color"], "color", connection_string=pg_conn_str),
+        "texture":normalize_vector_by_feature_name(feature_img_input["texture"], "texture", connection_string=pg_conn_str),
+        "hog":normalize_vector_by_feature_name(feature_img_input["hog"], "hog", connection_string=pg_conn_str),
+        "shape":normalize_vector_by_feature_name(feature_img_input["shape"], "shape", connection_string=pg_conn_str),
+        "venation":normalize_vector_by_feature_name(feature_img_input["venation"], "venation", connection_string=pg_conn_str)
     }
  
     try:
@@ -55,5 +56,5 @@ def main():
         return
     
 if __name__ == "__main__":
-    main()
+    main()                     
     

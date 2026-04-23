@@ -27,13 +27,13 @@ class ExtractImageDB:
         candidate4_color=[]
 
         K1 = 100
-        K2 = 10
-        K3 = 10
-        K4 = 10
+        K2 = 50
+        K3 = 50
+        K4 = 50
 
         for batch in self.dao_postgresql.get_features_in_batches():
             for item in batch:
-                if item["color"] is not None and feauture_img_query.get("color") is not None:
+                if item["shape"] is not None and feauture_img_query.get("shape") is not None:
                     distance_shape = compute_distance_shape(
                         feauture_img_query["shape"], item["shape"]
                     )
@@ -46,7 +46,7 @@ class ExtractImageDB:
                             heapq.heapreplace(candidate1_shape, (-distance_shape, item))
                 
         for item1 in candidate1_shape:
-            distance_hog=compute_distance_shape(feauture_img_query["shape"], item1[1]["shape"])
+            distance_hog=compute_distance_hog(feauture_img_query["hog"], item1[1]["hog"])
 
             if len(candidate2_hog) < K2:
                 heapq.heappush(candidate2_hog, (-distance_hog, item1[1]))
