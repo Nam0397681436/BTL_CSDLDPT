@@ -3,7 +3,7 @@ import cv2
 import hashlib
 from pathlib import Path
 
-from src.services.ExtractFeatureImage import (
+from services.ExtractFeatureImage import (
     extract_feature_texture,
     extract_feature_shape,
     extract_feature_HOG,
@@ -75,7 +75,7 @@ class Image:
             "texture": self._compute_texture_features(),
             'shape': extract_feature_shape(self.image),
             'hog': extract_feature_HOG(self.image),
-            'venation': extract_feature_venation(self.image), # xem bo feature nay 
+            'venation': extract_feature_venation(self.image),
             'color': extract_feature_color(self.image)
         }
         return features

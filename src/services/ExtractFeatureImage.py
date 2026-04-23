@@ -1,9 +1,9 @@
+
 import cv2
 import numpy as np
-from .feature.ColorFeature import extract_color_vector
-from .feature.TextureFeature import extract_texture_vector
-from .feature.VenationFeature import extract_venation_vector
-from .PreprocessImage import can_bang_clahe
+from services.feature.ColorFeature import extract_color_vector
+from services.feature.TextureFeature import extract_texture_vector
+from services.feature.VenationFeature import extract_venation_vector
 
 
 def extract_feature_color(img_np: np.ndarray) -> np.ndarray:
@@ -15,9 +15,9 @@ def extract_feature_color(img_np: np.ndarray) -> np.ndarray:
         if img_np.ndim == 2:
             img_rgb = cv2.cvtColor(img_np, cv2.COLOR_GRAY2RGB)
         elif img_np.shape[2] == 4:
-            img_rgb = cv2.cvtColor(img_np, cv2.COLOR_RGBA2RGB)
+            img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BGRA2RGB)
         else:
-            img_rgb = img_np.copy()
+            img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
         
         color_vector = extract_color_vector(img_rgb)
         return np.array(color_vector, dtype=np.float32)
@@ -31,7 +31,7 @@ def extract_feature_texture(img_np: np.ndarray) -> np.ndarray:
         return np.array([])
     
     try:
-        gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY) if img_np.ndim == 3 else img_np.copy()
+        gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY) if img_np.ndim == 3 else img_np.copy()
         texture_vector = extract_texture_vector(gray)
         return np.array(texture_vector, dtype=np.float32)
     except Exception as e:
@@ -47,9 +47,9 @@ def extract_feature_venation(img_np: np.ndarray) -> np.ndarray:
         if img_np.ndim == 2:
             img_rgb = cv2.cvtColor(img_np, cv2.COLOR_GRAY2RGB)
         elif img_np.shape[2] == 4:
-            img_rgb = cv2.cvtColor(img_np, cv2.COLOR_RGBA2RGB)
+            img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BGRA2RGB)
         else:
-            img_rgb = img_np.copy()
+            img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
         
         vein_vector = extract_venation_vector(img_rgb)
         return np.array(vein_vector, dtype=np.float32)
@@ -65,11 +65,11 @@ def extract_feature_HOG(img_np: np.ndarray) -> np.ndarray:
     try:
         # 1. Chuyển sang ảnh xám và làm mờ để giảm nhiễu
         gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
-        img_clahe=can_bang_clahe(gray)
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         
         # 2. Tạo mask dùng Otsu Thresholding (tự động tìm ngưỡng tối ưu)
         # Thử cả 2 trường hợp: Lá sáng trên nền tối và ngược lại
-        _, thresh = cv2.threshold(img_clahe, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         
         # Đảm bảo phần diện tích lớn hơn là nền (thường là vậy), nếu không thì invert
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -77,7 +77,7 @@ def extract_feature_HOG(img_np: np.ndarray) -> np.ndarray:
             largest_cnt = max(contours, key=cv2.contourArea)
             # Nếu contour lớn nhất chiếm quá ít diện tích, có thể cần invert mask
             if cv2.contourArea(largest_cnt) < (img_np.shape[0] * img_np.shape[1] * 0.1):
-                _, thresh = cv2.threshold(img_clahe, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+                _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
                 contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                 if contours:
                     largest_cnt = max(contours, key=cv2.contourArea)
@@ -188,16 +188,19 @@ def extract_feature_shape(img_np: np.ndarray) -> np.ndarray:
     """
      Sử dungj thuật toán tìm biên Canny để tìm đường bao bên ngoài của lá. cho ngưỡng cao để tránh lấy gân lá
     """
-    leaf_contours= detect_leaf_contour(img_np)
-
-    area= cv2.contourArea(leaf_contours)
-    chuVi= cv2.arcLength(leaf_contours, True)
+    leaf_contours = detect_leaf_contour(img_np)
     
-    x, y, w, h=cv2.boundingRect(leaf_contours)
-    aspect_ratio= float(w)/h
+    if leaf_contours is None or (isinstance(leaf_contours, np.ndarray) and leaf_contours.size == 0):
+        return np.array([])
+
+    area = cv2.contourArea(leaf_contours)
+    chuVi = cv2.arcLength(leaf_contours, True)
+    
+    x, y, w, h = cv2.boundingRect(leaf_contours)
+    aspect_ratio = float(w)/h if h > 0 else 0
 
     rect_area = w * h
-    extent = float(area) / rect_area  #Cho biết lá này có chiếm đầy khung hình chữ nhật hay không
+    extent = float(area) / rect_area if rect_area > 0 else 0  #Cho biết lá này có chiếm đầy khung hình chữ nhật hay không
     
     hull= cv2.convexHull(leaf_contours)
     hull_area=cv2.contourArea(hull)
@@ -217,8 +220,4 @@ def extract_feature_shape(img_np: np.ndarray) -> np.ndarray:
     ])
     
     return feature_vector
-
-
-
-
 

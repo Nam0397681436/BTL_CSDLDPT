@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 
+from .leaf_segmentation import extract_leaf_mask, crop_leaf_region
+
 
 def _ensure_rgb(image):
     if image is None:
@@ -12,35 +14,27 @@ def _ensure_rgb(image):
     return image.copy()
 
 
+def _clean_mask(mask):
+    mask = (mask > 0).astype(np.uint8) * 255
+    kernel_small = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel_small, iterations=1)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=1)
+
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return mask
+
+    largest = max(contours, key=cv2.contourArea)
+    cleaned = np.zeros_like(mask)
+    cv2.drawContours(cleaned, [largest], -1, 255, thickness=cv2.FILLED)
+    return cleaned
+
+
 def _largest_leaf_mask(image_rgb):
-    gray = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    _, threshold = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-    kernel = np.ones((5, 5), np.uint8)
-    candidates = []
-
-    for candidate in (threshold, cv2.bitwise_not(threshold)):
-        cleaned = cv2.morphologyEx(candidate, cv2.MORPH_CLOSE, kernel)
-        cleaned = cv2.morphologyEx(cleaned, cv2.MORPH_OPEN, kernel)
-        contours, _ = cv2.findContours(cleaned, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if not contours:
-            continue
-
-        largest = max(contours, key=cv2.contourArea)
-        area = cv2.contourArea(largest)
-        if area <= 0:
-            continue
-
-        mask = np.zeros_like(gray, dtype=np.uint8)
-        cv2.drawContours(mask, [largest], -1, 255, thickness=cv2.FILLED)
-        candidates.append((area, mask))
-
-    if not candidates:
-        return np.full_like(gray, 255, dtype=np.uint8)
-
-    candidates.sort(key=lambda item: item[0], reverse=True)
-    return candidates[0][1]
+    image_rgb = _ensure_rgb(image_rgb)
+    image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
+    return _clean_mask(extract_leaf_mask(image_bgr))
 
 
 def _zhang_suen_thinning(binary_image):
@@ -160,6 +154,7 @@ def _count_end_points(skeleton):
 
     return end_points
 
+
 def _count_connected_components(binary_image):
     binary = (binary_image > 0).astype(np.uint8)
     if np.count_nonzero(binary) == 0:
@@ -167,6 +162,7 @@ def _count_connected_components(binary_image):
 
     component_count, _ = cv2.connectedComponents(binary)
     return max(0, int(component_count - 1))
+
 
 def _fractal_dimension(binary_image):
     binary = (binary_image > 0)
@@ -209,28 +205,52 @@ def _fractal_dimension(binary_image):
 def extract_venation_vector(image):
     """Extract venation feature vector (10D) for detailed vein structure analysis."""
     image_rgb = _ensure_rgb(image)
-    gray = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
-    leaf_mask = _largest_leaf_mask(image_rgb)
+    image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
+    raw_mask = _largest_leaf_mask(image_rgb)
+    
+    cropped_bgr, leaf_mask = crop_leaf_region(image_bgr, raw_mask, target_size=(256, 256))
+    cropped_rgb = cv2.cvtColor(cropped_bgr, cv2.COLOR_BGR2RGB)
+    gray = cv2.cvtColor(cropped_rgb, cv2.COLOR_RGB2GRAY)
 
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    # 1. Thay Gaussian Blur bằng Bilateral Filter để khử nhiễu nhưng GIỮ LẠI biên (gân lá)
+    blurred = cv2.bilateralFilter(gray, d=5, sigmaColor=50, sigmaSpace=50)
+
+    # 2. Tăng cường độ tương phản cục bộ (clipLimit từ 2.0 -> 3.0)
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
     enhanced = clahe.apply(blurred)
 
-    kernel_small = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
+    # 3. Thu nhỏ kích thước kernel để bắt các gân mảnh hơn
+    kernel_small = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
     blackhat = cv2.morphologyEx(enhanced, cv2.MORPH_BLACKHAT, kernel_small)
     tophat = cv2.morphologyEx(enhanced, cv2.MORPH_TOPHAT, kernel_small)
-    edges = cv2.Canny(enhanced, 25, 90)
+    
+    # 4. Hạ ngưỡng Canny để bắt được các đường gân mờ (từ 25, 90 xuống 15, 50)
+    edges = cv2.Canny(enhanced, 15, 50)
 
-    vein_enhanced = cv2.addWeighted(blackhat, 0.55, tophat, 0.25, 0)
-    vein_enhanced = cv2.addWeighted(vein_enhanced, 1.0, edges, 0.35, 0)
+    # 5. Tăng trọng số làm nổi bật gân từ Blackhat và Tophat
+    vein_enhanced = cv2.addWeighted(blackhat, 0.7, tophat, 0.3, 0)
+    vein_enhanced = cv2.addWeighted(vein_enhanced, 1.0, edges, 0.5, 0)
     vein_enhanced = cv2.bitwise_and(vein_enhanced, vein_enhanced, mask=leaf_mask)
 
-    _, vein_binary = cv2.threshold(vein_enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    # 6. Thay thế Otsu bằng Adaptive Threshold để không sót gân ở vùng sáng/tối không đều
+    vein_binary = cv2.adaptiveThreshold(
+        vein_enhanced, 255, 
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+        cv2.THRESH_BINARY, 
+        15, -3  # Block size 15, hằng số C=-3 giúp giữ lại các đường mờ
+    )
+
+    # Lọc bớt nhiễu hạt tiêu sau khi dùng Adaptive Threshold
+    kernel_clean = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
+    vein_binary = cv2.morphologyEx(vein_binary, cv2.MORPH_OPEN, kernel_clean, iterations=1)
+
     vein_binary = cv2.bitwise_and(vein_binary, vein_binary, mask=leaf_mask)
 
+    # Rút trích khung xương (skeleton)
     skeleton = _zhang_suen_thinning(vein_binary)
     skeleton = cv2.bitwise_and(skeleton, skeleton, mask=leaf_mask)
 
+    # Tính toán đặc trưng
     vein_length = int(np.count_nonzero(skeleton))
     vein_area = int(np.count_nonzero(vein_binary))
     leaf_area = max(1, int(np.count_nonzero(leaf_mask)))
@@ -239,7 +259,6 @@ def extract_venation_vector(image):
     end_points = int(_count_end_points(skeleton))
     component_count = int(_count_connected_components(skeleton))
     fractal_dimension = float(_fractal_dimension(skeleton))
-    
 
     branch_density = float(branch_points / leaf_area)
     end_point_density = float(end_points / leaf_area)

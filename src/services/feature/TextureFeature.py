@@ -1,6 +1,44 @@
 import cv2
 import numpy as np
 
+from .leaf_segmentation import extract_leaf_mask, crop_leaf_region
+
+
+def _ensure_rgb(image):
+    if image is None:
+        raise ValueError("Input image is empty.")
+
+    if image.ndim == 2:
+        return cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+
+    if image.shape[2] == 4:
+        return cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
+
+    return image.copy()
+
+
+def _clean_mask(mask):
+    mask = (mask > 0).astype(np.uint8) * 255
+    kernel_small = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel_small, iterations=1)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=1)
+
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return mask
+
+    largest = max(contours, key=cv2.contourArea)
+    cleaned = np.zeros_like(mask)
+    cv2.drawContours(cleaned, [largest], -1, 255, thickness=cv2.FILLED)
+    return cleaned
+
+
+def _largest_leaf_mask(image_rgb):
+    image_rgb = _ensure_rgb(image_rgb)
+    image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
+    return _clean_mask(extract_leaf_mask(image_bgr))
+
 
 def _uniform_lbp(gray, radius=1):
     if radius != 1:
@@ -17,7 +55,8 @@ def _uniform_lbp(gray, radius=1):
 
     neighbor_bits = []
     for dy, dx in offsets:
-        neighbor = padded[radius + dy:radius + dy + gray.shape[0], radius + dx:radius + dx + gray.shape[1]]
+        neighbor = padded[radius + dy:radius + dy + gray.shape[0], 
+                         radius + dx:radius + dx + gray.shape[1]]
         neighbor_bits.append((neighbor >= center).astype(np.uint8))
 
     binary_code = np.zeros_like(gray, dtype=np.uint8)
@@ -40,7 +79,9 @@ def _glcm_features(gray, mask, levels=32):
     if levels < 2:
         raise ValueError("levels must be at least 2")
 
-    quantized = (gray.astype(np.uint16) * levels) // 256
+    # Chỉ tính trên mask
+    masked_gray = np.where(mask > 0, gray, 0).astype(np.uint16)
+    quantized = (masked_gray * levels) // 256
     quantized = np.clip(quantized, 0, levels - 1).astype(np.uint8)
 
     valid_left = mask[:, :-1] > 0
@@ -73,9 +114,8 @@ def _glcm_features(gray, mask, levels=32):
     std_i = float(np.sqrt(np.sum(((i - mean_i) ** 2) * glcm.sum(axis=1))))
     std_j = float(np.sqrt(np.sum(((i - mean_j) ** 2) * glcm.sum(axis=0))))
 
-    if std_i == 0.0 or std_j == 0.0:
-        correlation = 0.0
-    else:
+    correlation = 0.0
+    if std_i > 0 and std_j > 0:
         correlation = float(
             np.sum(((j - mean_i) * (i - mean_j)) * glcm) / (std_i * std_j)
         )
@@ -98,16 +138,17 @@ def compute_texture_features(gray, mask=None, lbp_R=1):
     if cv2.countNonZero(mask) == 0:
         mask = np.full(mask.shape, 255, dtype=np.uint8)
 
-    lbp, n_bins = _uniform_lbp(gray, radius=lbp_R)
+    # Đảm bảo chỉ tính trên lá (bắt buộc)
+    masked_gray = np.where(mask > 0, gray, 128).astype(np.uint8)  # 128 = gray neutral
+
+    lbp, n_bins = _uniform_lbp(masked_gray, radius=lbp_R)
     lbp_values = lbp[mask > 0]
+
     if lbp_values.size == 0:
         lbp_values = lbp.reshape(-1)
 
     lbp_hist, _ = np.histogram(
-        lbp_values,
-        bins=n_bins,
-        range=(0, n_bins),
-        density=True,
+        lbp_values, bins=n_bins, range=(0, n_bins), density=True
     )
 
     contrast, energy, correlation, entropy = _glcm_features(gray, mask)
@@ -122,13 +163,23 @@ def compute_texture_features(gray, mask=None, lbp_R=1):
 
 
 def extract_texture_vector(image):
-    """Extract texture feature vector (14D) from image - GLCM (4D) + LBP (10D)."""
-    if image.ndim == 3:
-        gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-    else:
-        gray = image.copy()
+    """Extract texture feature vector (14D)"""
+    image_rgb = _ensure_rgb(image)
+    image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
+
+    # Lấy mask
+    raw_mask = _largest_leaf_mask(image_rgb)
+    cropped_bgr, cropped_mask = crop_leaf_region(image_bgr, raw_mask, target_size=(256, 256))
     
-    texture_data = compute_texture_features(gray)
+    cropped_rgb = cv2.cvtColor(cropped_bgr, cv2.COLOR_BGR2RGB)
+    gray = cv2.cvtColor(cropped_rgb, cv2.COLOR_RGB2GRAY)
+
+    # Làm sạch mask lần cuối
+    cropped_mask = (cropped_mask > 0).astype(np.uint8) * 255
+    cropped_mask = cv2.morphologyEx(cropped_mask, cv2.MORPH_CLOSE, 
+                                   cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5)), iterations=1)
+
+    texture_data = compute_texture_features(gray, cropped_mask)
     
     glcm_part = [
         texture_data["GLCM_Contrast"],
@@ -138,5 +189,5 @@ def extract_texture_vector(image):
     ]
     lbp_part = texture_data["LBP_histogram"]
     texture_vector = glcm_part + lbp_part
-    
+
     return texture_vector
