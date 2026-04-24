@@ -1,11 +1,10 @@
-
 import numpy as np
 from model.Image import Image
 import os
 import gc
 
 
-FEATURE_KEYS = ("color", "texture", "hog", "shape", "venation")
+FEATURE_KEYS = ("color", "texture", "hog", "shape")
 
 
 def _to_1d_float32(vector_like) -> np.ndarray:
@@ -120,7 +119,6 @@ def main():
                             "texture": _to_1d_float32(metadata_features.get("texture")),
                             "hog": _to_1d_float32(metadata_features.get("hog")),
                             "shape": _to_1d_float32(metadata_features.get("shape")),
-                            "venation": _to_1d_float32(metadata_features.get("venation")),
                         },
                     }
                 )

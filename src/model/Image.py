@@ -15,7 +15,6 @@ from services.ExtractFeatureImage import (
     extract_feature_texture,
     extract_feature_shape,
     extract_feature_HOG,
-    extract_feature_venation,
     extract_feature_color,
 )
 
@@ -83,7 +82,6 @@ class Image:
             "texture": self._compute_texture_features(),
             'shape': extract_feature_shape(self.image),
             'hog': extract_feature_HOG(self.image),
-            'venation': extract_feature_venation(self.image),
             'color': extract_feature_color(self.image)
         }
         return features

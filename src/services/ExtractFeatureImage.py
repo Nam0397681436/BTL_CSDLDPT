@@ -3,7 +3,6 @@ import cv2
 import numpy as np
 from services.feature.ColorFeature import extract_color_vector
 from services.feature.TextureFeature import extract_texture_vector
-from services.feature.VenationFeature import extract_venation_vector
 
 
 def extract_feature_color(img_np: np.ndarray) -> np.ndarray:
@@ -38,24 +37,6 @@ def extract_feature_texture(img_np: np.ndarray) -> np.ndarray:
         print(f"Error extracting texture features: {e}")
         return np.array([])
 
-def extract_feature_venation(img_np: np.ndarray) -> np.ndarray:
-    """Extract venation features - vein length, branch points, density (3D)."""
-    if img_np is None or img_np.size == 0:
-        return np.array([])
-    
-    try:
-        if img_np.ndim == 2:
-            img_rgb = cv2.cvtColor(img_np, cv2.COLOR_GRAY2RGB)
-        elif img_np.shape[2] == 4:
-            img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BGRA2RGB)
-        else:
-            img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
-        
-        vein_vector = extract_venation_vector(img_rgb)
-        return np.array(vein_vector, dtype=np.float32)
-    except Exception as e:
-        print(f"Error extracting venation features: {e}")
-        return np.array([])
 
 def extract_feature_HOG(img_np: np.ndarray) -> np.ndarray:
     if img_np is None or img_np.size == 0:
