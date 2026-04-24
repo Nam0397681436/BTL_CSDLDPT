@@ -1,12 +1,5 @@
 import cv2
 import numpy as np
-from pathlib import Path
-import sys
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SRC_DIR = PROJECT_ROOT / "src"
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
 
 def _get_leaf_mask(img_np: np.ndarray) -> np.ndarray:
     """
@@ -99,18 +92,3 @@ def rotate_leave(img_np: np.ndarray) -> np.ndarray:
         warped = cv2.rotate(warped, cv2.ROTATE_90_CLOCKWISE)
 
     return warped
-
-
-def main():
-    img_path="./test/img_test/arjun.jpeg"
-    img_input=cv2.imread(img_path)
-    img_input=cv2.resize(img_input,(256,256))
-    img_rotate=rotate_leave(img_input)
-    cv2.imshow("img_input",img_rotate)
-    
-    cv2.imwrite("./test/img_test/arjun_rotate.jpeg",img_rotate)
-    
-    
-if __name__ == "__main__":
-    main()
-    

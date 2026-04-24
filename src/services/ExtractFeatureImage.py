@@ -58,135 +58,47 @@ def extract_feature_venation(img_np: np.ndarray) -> np.ndarray:
         return np.array([])
 
 def extract_feature_HOG(img_np: np.ndarray) -> np.ndarray:
-    """Trích xuất đặc trưng HOG tập trung vào vùng lá bằng cách sử dụng mask lọc nền mạnh mẽ."""
     if img_np is None or img_np.size == 0:
         return np.array([])
 
     try:
-        # 1. Chuyển sang ảnh xám và làm mờ để giảm nhiễu
         gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        
-        # 2. Tạo mask dùng Otsu Thresholding (tự động tìm ngưỡng tối ưu)
-        # Thử cả 2 trường hợp: Lá sáng trên nền tối và ngược lại
-        _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        
-        # Đảm bảo phần diện tích lớn hơn là nền (thường là vậy), nếu không thì invert
-        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if contours:
-            largest_cnt = max(contours, key=cv2.contourArea)
-            # Nếu contour lớn nhất chiếm quá ít diện tích, có thể cần invert mask
-            if cv2.contourArea(largest_cnt) < (img_np.shape[0] * img_np.shape[1] * 0.1):
-                _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-                contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                if contours:
-                    largest_cnt = max(contours, key=cv2.contourArea)
+        gray = cv2.resize(gray, (144, 256), interpolation=cv2.INTER_AREA)
 
-            # Tạo mask từ contour lớn nhất
-            mask = np.zeros_like(gray)
-            cv2.drawContours(mask, [largest_cnt], -1, 255, -1)
-            
-            # Làm mượt mask bằng phép đóng (Closing)
-            kernel = np.ones((5,5), np.uint8)
-            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        else:
-            mask = np.ones_like(gray) * 255 # Fallback nếu không tìm thấy contour
+        hog = cv2.HOGDescriptor(
+            _winSize=(144, 256),
+            _blockSize=(32, 32),
+            _blockStride=(16, 16),
+            _cellSize=(16, 16),
+            _nbins=9
+        )
 
-        # 3. Loại bỏ nền
-        img_masked = cv2.bitwise_and(img_np, img_np, mask=mask)
-        
-        # 4. Chuyển sang ảnh xám và resize (160x128)
-        gray_masked = cv2.cvtColor(img_masked, cv2.COLOR_BGR2GRAY)
-        img_resized = cv2.resize(gray_masked, (160, 128))
-    
-        # 5. Khởi tạo HOG Descriptor
-        hog = cv2.HOGDescriptor(_winSize=(160, 128),
-                                _blockSize=(16, 16),
-                                _blockStride=(8, 8),
-                                _cellSize=(8, 8),
-                                _nbins=9)
-        
-        # 6. Tính toán các đặc trưng
-        hog_features = hog.compute(img_resized)
+        hog_features = hog.compute(gray)
         return hog_features.flatten()
-        
+
     except Exception as e:
         print(f"Error in extract_feature_HOG: {e}")
         return np.array([])
 
-def extract_feature_HOG_ROTATE(img_np:np.ndarray):
-    """Trích xuất đặc trưng HOG tập trung vào vùng lá bằng cách sử dụng mask lọc nền mạnh mẽ."""
-    if img_np is None or img_np.size == 0:
-        return np.array([])
-
-    try:
-        # 1. Chuyển sang ảnh xám và làm mờ để giảm nhiễu
-        gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
-        img_clahe=can_bang_clahe(gray)
-        
-        # 2. Tạo mask dùng Otsu Thresholding (tự động tìm ngưỡng tối ưu)
-        # Thử cả 2 trường hợp: Lá sáng trên nền tối và ngược lại
-        _, thresh = cv2.threshold(img_clahe, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        
-        # Đảm bảo phần diện tích lớn hơn là nền (thường là vậy), nếu không thì invert
-        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if contours:
-            largest_cnt = max(contours, key=cv2.contourArea)
-            # Nếu contour lớn nhất chiếm quá ít diện tích, có thể cần invert mask
-            if cv2.contourArea(largest_cnt) < (img_np.shape[0] * img_np.shape[1] * 0.1):
-                _, thresh = cv2.threshold(img_clahe, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-                contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                if contours:
-                    largest_cnt = max(contours, key=cv2.contourArea)
-
-            # Tạo mask từ contour lớn nhất
-            mask = np.zeros_like(gray)
-            cv2.drawContours(mask, [largest_cnt], -1, 255, -1)
-            
-            # Làm mượt mask bằng phép đóng (Closing)
-            kernel = np.ones((5,5), np.uint8)
-            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        else:
-            mask = np.ones_like(gray) * 255 # Fallback nếu không tìm thấy contour
-
-        # 3. Loại bỏ nền
-        img_masked = cv2.bitwise_and(img_np, img_np, mask=mask)
-        
-        # 4. Chuyển sang ảnh xám và resize (160x128)
-        gray_masked = cv2.cvtColor(img_masked, cv2.COLOR_BGR2GRAY)
-        img_resized = cv2.resize(gray_masked, (160, 128))
-    
-        # 5. Khởi tạo HOG Descriptor
-        hog = cv2.HOGDescriptor(_winSize=(160, 128),
-                                _blockSize=(16, 16),
-                                _blockStride=(8, 8),
-                                _cellSize=(8, 8),
-                                _nbins=9)
-        
-        # 6. Tính toán các đặc trưng
-        hog_features = hog.compute(img_resized)
-        return hog_features.flatten()
-        
-    except Exception as e:
-        print(f"Error in extract_feature_HOG: {e}")
-        return np.array([])
+def _otsu_leaf_mask(img_np: np.ndarray) -> np.ndarray:
+    """Otsu thuần: grayscale → GaussianBlur → threshold."""
+    gray    = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY) if img_np.ndim == 3 else img_np.copy()
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    _, binary = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    return binary
 
 
 def detect_leaf_contour(img_np: np.ndarray) -> np.ndarray:
-    """Tìm đường bao lớn nhất của lá (sử dụng Otsu để tăng độ chính xác)."""
-    gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    
+    """Tìm đường bao lớn nhất của lá bằng Otsu thuần."""
+    thresh = _otsu_leaf_mask(img_np)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
         return np.array([])
-        
     return max(contours, key=cv2.contourArea)
     
 def extract_feature_shape(img_np: np.ndarray) -> np.ndarray:
     """
-     Sử dungj thuật toán tìm biên Canny để tìm đường bao bên ngoài của lá. cho ngưỡng cao để tránh lấy gân lá
+     Sử dungj thuật toán otsu để tìm đường bao bên ngoài của lá. cho ngưỡng cao để tránh lấy gân lá
     """
     leaf_contours = detect_leaf_contour(img_np)
     
@@ -212,11 +124,15 @@ def extract_feature_shape(img_np: np.ndarray) -> np.ndarray:
     moments=cv2.moments(mask)
     hu_moments=cv2.HuMoments(moments)
 
+    # Log-transform Hu Moments để đưa về cùng thang đo
+    # Hu Moments có giá trị dao động từ 1e-2 đến 1e-22 → log nén lại
+    hu_moments_log = -np.sign(hu_moments) * np.log10(np.abs(hu_moments) + 1e-10)
+
     feature_vector= np.hstack([
         aspect_ratio,
         extent,
         solidity,
-        hu_moments.flatten()
+        hu_moments_log.flatten()
     ])
     
     return feature_vector

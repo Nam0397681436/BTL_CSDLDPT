@@ -12,12 +12,13 @@ import numpy as np
 import streamlit as st
 from src.model.Image import Image
 from src.services.ExtractImageDB import ExtractImageDB
+from src.services.ExtractImageDBWeighted import ExtractImageDBWeighted
 from src.dao.DAOPostgresql import DAOPostgresql
 from src.dao.DAOMinio import DAOMinio
 from src.utils.normalVector import normalize_vector_by_feature_name
 
 def main():
-    img_path="./test/img_test/arjun.jpeg"
+    img_path="./test/img_test/potato.jpg"
     img_input=cv2.imread(img_path)
     
     img_object=Image(img_input=img_input)
@@ -46,7 +47,7 @@ def main():
         return
     
     try: 
-        resulteImageQuery=ExtractImageDB(dao_minio,dao_postgresql)
+        resulteImageQuery=ExtractImageDBWeighted(dao_minio,dao_postgresql)
         resulteImageQuery.extract_image_postgresql(feature_img_input)
         list_img_url=resulteImageQuery.extract_image_minio(feature_img_input)
         for img_url in list_img_url:

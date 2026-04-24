@@ -21,52 +21,52 @@ class ExtractImageDB:
 
     def extract_image_postgresql(self, feauture_img_query :dict) -> list[tuple[float,str]]:
         
-        candidate1_shape=[]
-        candidate2_hog=[]
-        candidate3_texture=[]
-        candidate4_color=[]
+        candidate_shape=[]
+        candidate_hog=[]
+        candidate_texture=[]
+        candidate_color=[]
 
-        K1 = 100
-        K2 = 50
-        K3 = 50
-        K4 = 50
+        K1 = 30
+        K2 = 30
+        K3 = 20
+        K4 = 20
 
         for batch in self.dao_postgresql.get_features_in_batches():
             for item in batch:
-                if item["shape"] is not None and feauture_img_query.get("shape") is not None:
-                    distance_shape = compute_distance_shape(
-                        feauture_img_query["shape"], item["shape"]
+                if item["hog"] is not None and feauture_img_query.get("hog") is not None:
+                    distance_hog = compute_distance_hog(
+                        feauture_img_query["hog"], item["hog"]
                     )
 
-                    if len(candidate1_shape) < K1:
-                        heapq.heappush(candidate1_shape, (-distance_shape, item))                  
+                    if len(candidate_hog) < K1:
+                        heapq.heappush(candidate_hog, (-distance_hog, item))                  
                     else:
                         # so với phần tử lớn nhất hiện tại max-heapq giả
-                        if distance_shape < -candidate1_shape[0][0]:
-                            heapq.heapreplace(candidate1_shape, (-distance_shape, item))
+                        if distance_hog < -candidate_hog[0][0]:
+                            heapq.heapreplace(candidate_hog, (-distance_hog, item))
                 
-        for item1 in candidate1_shape:
-            distance_hog=compute_distance_hog(feauture_img_query["hog"], item1[1]["hog"])
+        for item1 in candidate_hog:
+            distance_shape=compute_distance_shape(feauture_img_query["shape"], item1[1]["shape"])
 
-            if len(candidate2_hog) < K2:
-                heapq.heappush(candidate2_hog, (-distance_hog, item1[1]))
+            if len(candidate_shape) < K2:
+                heapq.heappush(candidate_shape, (-distance_shape, item1[1]))
             else:
                 # so với phần tử lớn nhất hiện tại max-heapq giả
-                if distance_hog < -candidate2_hog[0][0]:
-                    heapq.heapreplace(candidate2_hog, (-distance_hog, item1[1]))
+                if distance_shape < -candidate_shape[0][0]:
+                    heapq.heapreplace(candidate_shape, (-distance_shape, item1[1]))
         
-        for item2 in candidate2_hog:
+        for item2 in candidate_shape:
             distance_texture=compute_distance_texture(feauture_img_query["texture"], item2[1]["texture"])
 
-            if len(candidate3_texture) < K3:
-                heapq.heappush(candidate3_texture, (-distance_texture, item2[1]))
+            if len(candidate_texture) < K3:
+                heapq.heappush(candidate_texture, (-distance_texture, item2[1]))
             else:
                 # so với phần tử lớn nhất hiện tại max-heapq giả
-                if distance_texture < -candidate3_texture[0][0]:
-                    heapq.heapreplace(candidate3_texture, (-distance_texture, item2[1]))
+                if distance_texture < -candidate_texture[0][0]:
+                    heapq.heapreplace(candidate_texture, (-distance_texture, item2[1]))
         
         
-        for item4 in candidate3_texture:
+        for item4 in candidate_texture:
             distance=compute_distance_color_histogram(feauture_img_query["color"], item4[1]["color"])
 
             if len(self.k5_images) < K4:

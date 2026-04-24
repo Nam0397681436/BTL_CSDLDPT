@@ -140,7 +140,7 @@ def extract_color_vector(image):
     raw_mask = _largest_leaf_mask(image_rgb)
 
     # Keep the historical square alignment behavior after using shared segmentation.
-    cropped_bgr, cropped_mask = crop_leaf_region(image_bgr, raw_mask, target_size=(512, 512))
+    cropped_bgr, cropped_mask = crop_leaf_region(image_bgr, raw_mask, target_size=(144,256))
     final_image = cv2.cvtColor(cropped_bgr, cv2.COLOR_BGR2RGB)
     final_mask = cropped_mask
 

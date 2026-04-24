@@ -92,6 +92,30 @@ class DAOPostgresql(IDatabase):
             self.connection.rollback()
             print(f"Error upserting normalization params: {e}")
             
+    def get_feature_normalization_params(self) -> dict:
+        """Đọc tham số chuẩn hóa từ bảng Feature_Normalization_Params.
+        Trả về dict dạng: {feature_name: {dim, mean, std}}
+        """
+        if self.connection is None:
+            self.connect()
+
+        result = {}
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(
+                    'SELECT feature_name, mean_vector, std_vector, vector_dim FROM "Feature_Normalization_Params"'
+                )
+                rows = cursor.fetchall()
+                for feature_name, mean_vector, std_vector, vector_dim in rows:
+                    result[feature_name] = {
+                        "dim": vector_dim,
+                        "mean": np.array(mean_vector, dtype=np.float32),
+                        "std": np.array(std_vector, dtype=np.float32),
+                    }
+        except Exception as e:
+            print(f"Error loading normalization params: {e}")
+        return result
+
     def close(self):
         if self.connection:
             self.connection.close()
@@ -163,3 +187,55 @@ class DAOPostgresql(IDatabase):
         with self.connection.cursor() as cursor:
             cursor.execute('SELECT * FROM "Basic_Metadata" WHERE image_id = %s', (image_id,))
             return cursor.fetchone()
+
+    def get_features_in_batches(self, batch_size: int = 100):
+        """Generator: yield từng batch danh sách dict feature của ảnh từ DB.
+        Mỗi item: {image_id, shape, hog, texture, color, venation}
+        """
+        if self.connection is None:
+            self.connect()
+
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                'SELECT image_id, color_vector, texture_vector, hog_vector, shape_vector, venation_vector FROM "Images_Features"'
+            )
+            while True:
+                rows = cursor.fetchmany(batch_size)
+                if not rows:
+                    break
+                batch = []
+                for image_id, color, texture, hog, shape, venation in rows:
+                    batch.append({
+                        "image_id": image_id,
+                        "color":    np.array(color,    dtype=np.float32) if color    else None,
+                        "texture":  np.array(texture,  dtype=np.float32) if texture  else None,
+                        "hog":      np.array(hog,      dtype=np.float32) if hog      else None,
+                        "shape":    np.array(shape,    dtype=np.float32) if shape    else None,
+                        "venation": np.array(venation, dtype=np.float32) if venation else None,
+                    })
+                yield batch
+
+    def get_metadata_by_ids(self, image_ids: list) -> list[dict]:
+        """Lấy metadata (image_id, minio_url, category...) theo danh sách image_id."""
+        if not image_ids:
+            return []
+        if self.connection is None:
+            self.connect()
+
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                'SELECT image_id, original_filename, minio_url, category, description FROM "Basic_Metadata" WHERE image_id = ANY(%s)',
+                (image_ids,)
+            )
+            rows = cursor.fetchall()
+            return [
+                {
+                    "image_id": row[0],
+                    "original_filename": row[1],
+                    "minio_url": row[2],
+                    "category": row[3],
+                    "description": row[4],
+                }
+                for row in rows
+            ]
+
