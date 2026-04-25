@@ -16,17 +16,15 @@ from src.services.computeDistance import (
     compute_distance_color_histogram,
     compute_distance_texture,
     compute_distance_shape,
-    compute_distance_hog,
-    compute_distance_venation,
+    compute_distance_hog
 )
 
 # Trọng số cho từng loại feature (tổng = 1.0)
 FEATURE_WEIGHTS = {
-    "hog":      0.40,
-    "shape":    0.25,
-    "color":    0.20,
-    "texture":  0.10,
-    "venation": 0.05,
+    "hog":      0.45,
+    "shape":    0.30,
+    "color":    0.15,
+    "texture":  0.10
 }
 
 
@@ -64,8 +62,7 @@ class ExtractImageDBWeighted:
             ("hog",      compute_distance_hog,             query.get("hog"),      db_item.get("hog")),
             ("shape",    compute_distance_shape,           query.get("shape"),    db_item.get("shape")),
             ("color",    compute_distance_color_histogram, query.get("color"),    db_item.get("color")),
-            ("texture",  compute_distance_texture,         query.get("texture"),  db_item.get("texture")),
-            ("venation", compute_distance_venation,        query.get("venation"), db_item.get("venation")),
+            ("texture",  compute_distance_texture,         query.get("texture"),  db_item.get("texture"))
         ]
 
         for feature_name, dist_fn, q_vec, db_vec in pairs:

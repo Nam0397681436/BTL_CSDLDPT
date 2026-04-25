@@ -11,8 +11,7 @@ CREATE TABLE IF NOT EXISTS "Images_Features" (
     color_vector REAL[],
     texture_vector REAL[],
     hog_vector REAL[],
-    shape_vector REAL[],
-    venation_vector REAL[]
+    shape_vector REAL[]
 );
 
 CREATE TABLE IF NOT EXISTS "Feature_Normalization_Params" (

@@ -8,7 +8,6 @@ from src.services.computeDistance import (
     compute_distance_texture,
     compute_distance_shape,
     compute_distance_hog,
-    compute_distance_venation
 )
 
 class ExtractImageDB:

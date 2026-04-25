@@ -41,8 +41,7 @@ class DAOPostgresql(IDatabase):
                     color_vector REAL[],
                     texture_vector REAL[],
                     hog_vector REAL[],
-                    shape_vector REAL[],
-                    venation_vector REAL[]
+                    shape_vector REAL[]
                 )
                 '''
             )
@@ -152,20 +151,18 @@ class DAOPostgresql(IDatabase):
                 texture_vector = self._to_pg_float_array(metadata_features.get("texture"))
                 hog_vector = self._to_pg_float_array(metadata_features.get("hog"))
                 shape_vector = self._to_pg_float_array(metadata_features.get("shape"))
-                venation_vector = self._to_pg_float_array(metadata_features.get("venation"))
 
                 cursor.execute(
                     """
                     INSERT INTO "Images_Features" (
-                        image_id, color_vector, texture_vector, hog_vector, shape_vector, venation_vector
+                        image_id, color_vector, texture_vector, hog_vector, shape_vector
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s)
                     ON CONFLICT (image_id) DO UPDATE SET
                         color_vector = EXCLUDED.color_vector,
                         texture_vector = EXCLUDED.texture_vector,
                         hog_vector = EXCLUDED.hog_vector,
-                        shape_vector = EXCLUDED.shape_vector,
-                        venation_vector = EXCLUDED.venation_vector
+                        shape_vector = EXCLUDED.shape_vector
                     """,
                     (
                         metadata_features["image_id"],
@@ -173,7 +170,6 @@ class DAOPostgresql(IDatabase):
                         texture_vector,
                         hog_vector,
                         shape_vector,
-                        venation_vector,
                     )
                 )
                 self.connection.commit()
@@ -197,21 +193,20 @@ class DAOPostgresql(IDatabase):
 
         with self.connection.cursor() as cursor:
             cursor.execute(
-                'SELECT image_id, color_vector, texture_vector, hog_vector, shape_vector, venation_vector FROM "Images_Features"'
+                'SELECT image_id, color_vector, texture_vector, hog_vector, shape_vector FROM "Images_Features"'
             )
             while True:
                 rows = cursor.fetchmany(batch_size)
                 if not rows:
                     break
                 batch = []
-                for image_id, color, texture, hog, shape, venation in rows:
+                for image_id, color, texture, hog, shape in rows:
                     batch.append({
                         "image_id": image_id,
                         "color":    np.array(color,    dtype=np.float32) if color    else None,
                         "texture":  np.array(texture,  dtype=np.float32) if texture  else None,
                         "hog":      np.array(hog,      dtype=np.float32) if hog      else None,
                         "shape":    np.array(shape,    dtype=np.float32) if shape    else None,
-                        "venation": np.array(venation, dtype=np.float32) if venation else None,
                     })
                 yield batch
 
