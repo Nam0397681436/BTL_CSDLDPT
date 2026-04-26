@@ -12,7 +12,6 @@ from services.ExtractFeatureImage import (
     extract_feature_color,
     extract_feature_HOG,
     extract_feature_texture,
-    extract_feature_venation,
     extract_feature_shape
 )
 

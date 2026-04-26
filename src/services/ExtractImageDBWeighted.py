@@ -16,16 +16,15 @@ from src.services.computeDistance import (
     compute_distance_color_histogram,
     compute_distance_texture,
     compute_distance_shape,
-    compute_distance_hog,
-    compute_distance_venation,
+    compute_distance_hog
 )
 
 # Trọng số cho từng loại feature (tổng = 1.0)
 FEATURE_WEIGHTS = {
-    "hog":      0.40,
-    "shape":    0.25,
-    "color":    0.20,
-    "texture":  0.15
+    "hog":      0.45,
+    "shape":    0.30,
+    "color":    0.15,
+    "texture":  0.10
 }
 
 

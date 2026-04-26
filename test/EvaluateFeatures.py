@@ -50,7 +50,7 @@ def main():
     with dao_postgresql.connection.cursor() as cursor:
         cursor.execute('''
             SELECT m.image_id, m.category, f.color_vector, f.texture_vector, 
-                   f.hog_vector, f.shape_vector, f.venation_vector 
+                   f.hog_vector, f.shape_vector
             FROM "Basic_Metadata" m
             JOIN "Images_Features" f ON m.image_id = f.image_id
             WHERE m.category IS NOT NULL AND m.category != ''

@@ -151,14 +151,13 @@ class DAOPostgresql(IDatabase):
                 texture_vector = self._to_pg_float_array(metadata_features.get("texture"))
                 hog_vector = self._to_pg_float_array(metadata_features.get("hog"))
                 shape_vector = self._to_pg_float_array(metadata_features.get("shape"))
-                venation_vector = self._to_pg_float_array(metadata_features.get("venation"))
 
                 cursor.execute(
                     """
                     INSERT INTO "Images_Features" (
-                        image_id, color_vector, texture_vector, hog_vector, shape_vector, venation_vector
+                        image_id, color_vector, texture_vector, hog_vector, shape_vector
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s)
                     ON CONFLICT (image_id) DO UPDATE SET
                         color_vector = EXCLUDED.color_vector,
                         texture_vector = EXCLUDED.texture_vector,
@@ -171,7 +170,6 @@ class DAOPostgresql(IDatabase):
                         texture_vector,
                         hog_vector,
                         shape_vector,
-                        venation_vector,
                     )
                 )
                 self.connection.commit()
