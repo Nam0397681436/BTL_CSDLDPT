@@ -18,7 +18,7 @@ from src.dao.DAOMinio import DAOMinio
 from src.utils.normalVector import normalize_vector_by_feature_name
 
 def main():
-    img_path="./test/img_test/potato.jpg"
+    img_path="./test/img_test/img3.jpg"
     img_input=cv2.imread(img_path)
     
     img_object=Image(img_input=img_input)
@@ -30,8 +30,7 @@ def main():
         "color":normalize_vector_by_feature_name(feature_img_input["color"], "color", connection_string=pg_conn_str),
         "texture":normalize_vector_by_feature_name(feature_img_input["texture"], "texture", connection_string=pg_conn_str),
         "hog":normalize_vector_by_feature_name(feature_img_input["hog"], "hog", connection_string=pg_conn_str),
-        "shape":normalize_vector_by_feature_name(feature_img_input["shape"], "shape", connection_string=pg_conn_str),
-        "venation":normalize_vector_by_feature_name(feature_img_input["venation"], "venation", connection_string=pg_conn_str)
+        "shape":normalize_vector_by_feature_name(feature_img_input["shape"], "shape", connection_string=pg_conn_str)
     }
  
     try:
