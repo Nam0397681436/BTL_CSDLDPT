@@ -102,13 +102,14 @@ def main():
                 img_instance.preprocess()  # resize cho bước trích đặc trưng
                 metadata_features = img_instance.ExtractFeatures()
 
+                h, w = img_instance.original_image.shape[:2]
                 metadata_basic = {
                     "image_id": img_instance.image_id,
                     "original_filename": img_instance.source_path,
                     "minio_url": img_instance.url_minio,
                     "category": img_instance.category,
                     "aspect_ratio": "1300x2310",
-                    "format_file": "jpg",
+                    "format_file": os.path.splitext(img_instance.source_path)[-1].lstrip(".").upper(),
                     "description": f"Ảnh lá {img_instance.category}",
                 }
 

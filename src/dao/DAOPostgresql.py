@@ -30,7 +30,9 @@ class DAOPostgresql(IDatabase):
                     original_filename VARCHAR(255),
                     minio_url VARCHAR(255) NOT NULL,
                     category VARCHAR(50),
-                    description VARCHAR(255)
+                    description VARCHAR(255),
+                    aspect_ratio FLOAT,
+                    format_file VARCHAR(10)
                 )
                 '''
             )
@@ -145,7 +147,7 @@ class DAOPostgresql(IDatabase):
                         metadata_basic["minio_url"],
                         metadata_basic["category"],
                         metadata_basic["aspect_ratio"],
-                        metadata_basic["format_file "],
+                        metadata_basic["format_file"],
                         metadata_basic["description"]
                     )
                 )
