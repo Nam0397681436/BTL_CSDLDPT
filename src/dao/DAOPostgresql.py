@@ -129,12 +129,14 @@ class DAOPostgresql(IDatabase):
                 # Insert Basic Metadata
                 cursor.execute(
                     """
-                    INSERT INTO "Basic_Metadata" (image_id, original_filename, minio_url, category, description)
-                    VALUES (%s, %s, %s, %s, %s)
+                    INSERT INTO "Basic_Metadata" (image_id, original_filename, minio_url, category, aspect_ratio, format_file, description)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (image_id) DO UPDATE SET
                         original_filename = EXCLUDED.original_filename,
                         minio_url = EXCLUDED.minio_url,
                         category = EXCLUDED.category,
+                        aspect_ratio = EXCLUDED.aspect_ratio,
+                        format_file = EXCLUDED.format_file ,
                         description = EXCLUDED.description
                     """,
                     (
@@ -142,6 +144,8 @@ class DAOPostgresql(IDatabase):
                         metadata_basic["original_filename"],
                         metadata_basic["minio_url"],
                         metadata_basic["category"],
+                        metadata_basic["aspect_ratio"],
+                        metadata_basic["format_file "],
                         metadata_basic["description"]
                     )
                 )
@@ -219,7 +223,7 @@ class DAOPostgresql(IDatabase):
 
         with self.connection.cursor() as cursor:
             cursor.execute(
-                'SELECT image_id, original_filename, minio_url, category, description FROM "Basic_Metadata" WHERE image_id = ANY(%s)',
+                'SELECT image_id, original_filename, minio_url, category, aspect_ratio, format_file, description FROM "Basic_Metadata" WHERE image_id = ANY(%s)',
                 (image_ids,)
             )
             rows = cursor.fetchall()
@@ -229,7 +233,9 @@ class DAOPostgresql(IDatabase):
                     "original_filename": row[1],
                     "minio_url": row[2],
                     "category": row[3],
-                    "description": row[4],
+                    "aspect_ratio":row[4],
+                    "format_file": row[5],
+                    "description": row[6],
                 }
                 for row in rows
             ]

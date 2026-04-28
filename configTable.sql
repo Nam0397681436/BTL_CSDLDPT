@@ -3,6 +3,8 @@ CREATE TABLE IF NOT EXISTS "Basic_Metadata" (
     original_filename VARCHAR(255),
     minio_url VARCHAR(255) NOT NULL,
     category VARCHAR(50),
+    aspect_ratio VARCHAR(20),
+    format_file VARCHAR(10),
     description VARCHAR(255)
 );
 
@@ -20,4 +22,4 @@ CREATE TABLE IF NOT EXISTS "Feature_Normalization_Params" (
     std_vector REAL[] NOT NULL,
     vector_dim INTEGER NOT NULL,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+)
