@@ -3,8 +3,8 @@ import numpy as np
 
 
 class HOG:
-    def __init__(self, pixels=(144, 256), cell_size=8, block_size=2,
-                 step_size=8, nbins=9):
+    def __init__(self,img, pixels=(144, 256), cell_size=8, block_size=2,step_size=8, nbins=9):
+        self.img=img
         self.cell_size  = cell_size
         self.block_size = block_size
         self.nbins      = nbins
@@ -15,16 +15,23 @@ class HOG:
         )
         self.step_size = step_size
 
-    def computeHOG(self, img):
-        img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        img_gau = self.gaussian(img_gray)
-
+    def computeHOG(self):
+        if len(self.img.shape) == 3:
+            if self.img.shape[2] == 4:
+                img_gray = cv2.cvtColor(self.img, cv2.COLOR_BGRA2GRAY)
+            elif self.img.shape[2] == 3:
+                img_gray = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
+            else:
+                img_gray = self.img
+        else:
+            img_gray = self.img
+            
         hog_feature = []
 
         blk_px = self.block_size * self.cell_size
         for i in range(0, self.num_block[1] * self.step_size, self.step_size):
             for j in range(0, self.num_block[0] * self.step_size, self.step_size):
-                img_block = img_gau[i:i + blk_px, j:j + blk_px]
+                img_block = img_gray[i:i + blk_px, j:j + blk_px]
                 if img_block.shape[0] < blk_px or img_block.shape[1] < blk_px:
                     continue
                 block_feat = self.compute_block(img_block)
@@ -103,3 +110,8 @@ class HOG:
 
     def gaussian(self, img, kernel_size=5, sigma=1.0):
         return cv2.GaussianBlur(img, (kernel_size, kernel_size), sigma)
+
+# 249
+# eggplant 
+# fruitcitere
+

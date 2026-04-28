@@ -17,8 +17,9 @@ def compute_distance(image1: Image, image2: Image) -> float:
 
 def compute_distance_hog(feature1: np.ndarray, feature2: np.ndarray) -> float:
     # Tính khoảng cách L3 (căn bậc 3 của tổng các lập phương hiệu) giữa hai vector HOG
+    D = len(feature1)
     distance = np.linalg.norm(feature1 - feature2, ord=3)
-    return distance
+    return distance / (D**(1/3)) if D > 0 else 0.0
 
 def compute_distance_venation(feature1: np.ndarray, feature2: np.ndarray) -> float:
     # Tính khoảng cách tương quan (Correlation) giữa hai vector đặc trưng gân lá
@@ -32,29 +33,32 @@ def compute_distance_color_histogram(feature1: np.ndarray, feature2: np.ndarray)
     # Tính khoảng cách tương quan giữa hai histogram màu
     feat1 = np.asarray(feature1, dtype=np.float32)
     feat2 = np.asarray(feature2, dtype=np.float32)
-    distance = np.linalg.norm(feat1-feat2, ord=1)
-    return distance
+    D = len(feat1)
+    distance = np.linalg.norm(feat1-feat2, ord=2)
+    return distance / np.sqrt(D) if D > 0 else 0.0
 
 def compute_distance_texture(feature1: np.ndarray, feature2: np.ndarray) -> float:
     # Tính khoảng cách tương quan giữa hai histogram texture (kết cấu)
     feat1 = np.asarray(feature1, dtype=np.float32)
     feat2 = np.asarray(feature2, dtype=np.float32)
-    distance = np.linalg.norm(feat1-feat2, ord=1)
-    return distance
+    D = len(feat1)
+    distance = np.linalg.norm(feat1-feat2, ord=2)
+    return distance / np.sqrt(D) if D > 0 else 0.0
 
 def compute_distance_shape(feature1: np.ndarray, feature2: np.ndarray) -> float:
     # Tính khoảng cách tương quan giữa hai vector đặc trưng hình dạng
     feat1 = np.asarray(feature1, dtype=np.float32)
     feat2 = np.asarray(feature2, dtype=np.float32)
-    distance = np.linalg.norm(feat1-feat2, ord=1)
-    return distance
+    D = len(feat1)
+    distance = np.linalg.norm(feat1-feat2, ord=2)
+    return distance / np.sqrt(D) if D > 0 else 0.0
 
 def compute_distance_venation(feature1: np.ndarray, feature2: np.ndarray) -> float:
     # Tính khoảng cách tương quan giữa hai vector đặc trưng venotion
     try: 
         feat1 = np.asarray(feature1, dtype=np.float32)
         feat2 = np.asarray(feature2, dtype=np.float32)
-        distance = np.linalg.norm(feat1-feat2, ord=1)
+        distance = np.linalg.norm(feat1-feat2, ord=2)
         return distance
     except Exception as e:
         print(e)

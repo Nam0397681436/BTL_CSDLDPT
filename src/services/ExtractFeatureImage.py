@@ -3,6 +3,8 @@ import cv2
 import numpy as np
 from services.feature.ColorFeature import extract_color_vector
 from services.feature.TextureFeature import extract_texture_vector
+from model.ExtractHOG import HOG
+from model.Gaussian import Gaussian
 
 
 def extract_feature_color(img_np: np.ndarray) -> np.ndarray:
@@ -45,17 +47,11 @@ def extract_feature_HOG(img_np: np.ndarray) -> np.ndarray:
     try:
         gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
         gray = cv2.resize(gray, (144, 256), interpolation=cv2.INTER_AREA)
-
-        hog = cv2.HOGDescriptor(
-            _winSize=(144, 256),
-            _blockSize=(32, 32),
-            _blockStride=(16, 16),
-            _cellSize=(16, 16),
-            _nbins=9
-        )
-
-        hog_features = hog.compute(gray)
-        return hog_features.flatten()
+        gau=Gaussian()
+        gray=gau.gaussian(gray)
+        hog=HOG(gray)
+        hog_feature=hog.computeHOG()
+        return hog_feature
 
     except Exception as e:
         print(f"Error in extract_feature_HOG: {e}")
@@ -64,7 +60,7 @@ def extract_feature_HOG(img_np: np.ndarray) -> np.ndarray:
 def _otsu_leaf_mask(img_np: np.ndarray) -> np.ndarray:
     """Otsu thuần: grayscale → GaussianBlur → threshold."""
     gray    = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY) if img_np.ndim == 3 else img_np.copy()
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    blurred = Gaussian(3,1).gaussian(gray)
     _, binary = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
     return binary
 
@@ -105,8 +101,6 @@ def extract_feature_shape(img_np: np.ndarray) -> np.ndarray:
     moments=cv2.moments(mask)
     hu_moments=cv2.HuMoments(moments)
 
-    # Log-transform Hu Moments để đưa về cùng thang đo
-    # Hu Moments có giá trị dao động từ 1e-2 đến 1e-22 → log nén lại
     hu_moments_log = -np.sign(hu_moments) * np.log10(np.abs(hu_moments) + 1e-10)
 
     feature_vector= np.hstack([
